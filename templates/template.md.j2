@@ -1,0 +1,35 @@
+---
+title: "{{ title }}"
+author: "{{ author }}"
+date: "{{ date }}"
+summary: "{{ summary }}"
+tags: [{% for tag in tags %}"{{ tag }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+---
+
+# {{ title }}
+
+_{{ summary }}_
+
+**著者:** {{ author }}  
+**日付:** {{ date }}
+
+## 概要
+
+{{ overview }}
+
+## 本文
+
+{{ content | default('ここに本文を記述します。') }}
+
+{% if sections %}
+## セクション
+{% for section in sections %}
+### {{ section.title }}
+
+{{ section.body }}
+
+{% endfor %}
+{% endif %}
+
+---
+Generated with Jinja2 template
