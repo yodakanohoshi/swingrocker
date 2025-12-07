@@ -11,3 +11,5 @@ wheels/
 
 # lock
 uv.lock
+
+swingrocker.code-workspace
