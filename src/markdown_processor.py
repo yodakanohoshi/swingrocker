@@ -4,7 +4,7 @@ import pathlib
 def make_uuid():
     return str(uuid.uuid4())
 
-def convert_to_asis(plan_header, asis_path: pathlib.Path):
+def convert_to_asis(plan_header, asis_path: pathlib.Path, markdown_path: pathlib.Path):
     if plan_header is None:
         return None
     lines = plan_header
@@ -13,10 +13,16 @@ def convert_to_asis(plan_header, asis_path: pathlib.Path):
         if line.strip() == "":
             continue
         file_id = make_uuid()
-        file_name = f"{file_id}.md"
-        asis_lines.append(f"[{line.strip()}](asis/{file_name})")
-        asis_dir = asis_path / "asis"
-        file_path = asis_dir / file_name
+        file_name = f"{file_id}/0.md"
+
+        #markdown_pathのparentがasisの場合asisではなく../にする
+        if asis_path == markdown_path.parent.parent:
+            asis_lines.append(f"[{line.strip()}](../{file_name})")
+        else:
+            asis_lines.append(f"[{line.strip()}](asis/{file_name})")
+        
+        file_path = asis_path / file_name
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as ff:
             ff.write("\n\n")
             ff.write("# 計画\n\n")
@@ -48,7 +54,8 @@ class Headers():
         return self.headers
 
 class MarkdownIO:
-    def __init__(self, markdown_path: pathlib.Path):
+    def __init__(self, root_path: pathlib.Path, markdown_path: pathlib.Path):
+        self.root_path = root_path
         self.markdown_path = markdown_path
         self.content = self._read_markdown()
 
@@ -65,8 +72,8 @@ class MarkdownIO:
         plan_header = headers.headers.get("計画", None)
         if plan_header is None:
             return
-        asis_path = self.markdown_path.parent
-        asis_converted_plan = convert_to_asis(plan_header, asis_path)
+        asis_path = self.root_path / "asis"
+        asis_converted_plan = convert_to_asis(plan_header, asis_path, self.markdown_path)
         asis_added_headers = headers.add_asis(asis_converted_plan)
         
         if asis_converted_plan is None:
