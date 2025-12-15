@@ -1,44 +1,104 @@
-#!/usr/bin/env python3
-import uuid
 import argparse
+import uuid
 import pathlib
 
-def init_asis(path, asis_item: str=""):
-    base = pathlib.Path(path)
+class MarkdownIO:
+    def __init__(self, markdown_path: pathlib.Path):
+        self.markdown_path = markdown_path
+        self.content = self._read_markdown()
 
-    unique_id = uuid.uuid4()
-    # 1. path/asisの下にuuidディレクトリを作成し、その下に0.mdを作成する
-    target_dir = base / "asis" / str(unique_id)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target_file = target_dir / "0.md"
-    with target_file.open("w", encoding="utf-8") as f:
-        f.write(f"# Unique ID: {unique_id}\n")
-        f.write(f"# Init Asis: {asis_item}\n")
+    def _read_markdown(self):
+        with open(self.markdown_path, "r", encoding="utf-8") as f:
+            return f.read()
     
-    # 2. pathの中のtaksk.mdにuuidを書き込む。存在しない場合は新規作成する。
-    ## その際の形式は - [*](asis/uuid/0.md)として書き込む。
-    tasks_file = base / "tasks.md"
-    with tasks_file.open("a", encoding="utf-8") as f:
-        f.write(f"- [{asis_item}](asis/{unique_id}/0.md)\n")
+    def write_markdown(self, content):
+        with open(self.markdown_path, "w", encoding="utf-8") as f:
+            f.write(content)
 
-def main(args) -> None:
-    path = pathlib.Path(args.path)
-    # path/plan.mdを一行ずつ読み込みinit_asisを実行する
-    plan_file = path / "plan.md"
-    if not plan_file.exists():
-        print(f"Error: {plan_file} does not exist.")
-        return
+    def process(self):
+        headers = self.parse_headers()
+        plan_header = self.get_plan_header(headers)
+        asis_converted_plan = self.convert_to_asis(plan_header)
+        asis_added_headers = self.add_asis(asis_converted_plan, headers)
+        output_content = ""
+        for header, lines in asis_added_headers.items():
+            output_content += f"# {header}\n"
+            output_content += "\n".join(lines) + "\n"
+        self.write_markdown(output_content)
 
-    asis_plan_list = []
-    with plan_file.open("r", encoding="utf-8") as f:
-        for line in f:
-            asis_plan_list.append(line.strip())
-    for asis_data in asis_plan_list:
-        init_asis(path, asis_data)
+    def get_plan_header(self, headers):
+        for header, lines in headers.items():
+            print(f"header: {header}")
+            if "計画" == header:
+                return header, lines
+        return None, None
+    
+    def convert_to_asis(self, plan_header):
+        if plan_header is None:
+            return None
+        header, lines = plan_header
+        asis_lines = []
+        for line in lines:
+            if line.strip() == "":
+                continue
+            file_id = make_uuid()
+            file_name = f"{file_id}.md"
+            asis_lines.append(f"[{line.strip()}](asis/{file_name})")
+            asis_dir = self.markdown_path.parent / "asis"
+            file_path = asis_dir / file_name
+            with open(file_path, "w", encoding="utf-8") as ff:
+                ff.write("\n\n")
+                ff.write("# 計画\n\n")
+                ff.write(f"# 日程\n\n")
+                ff.write(f"# TODO\n\n")
+        return asis_lines
 
-def get_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", type=str, required=True)
+    def add_asis(self, asis_converted_plan, headers):
+        if asis_converted_plan is None:
+            return
+        if "実行" not in headers: # "実行" headerがなければ追加
+            headers["実行"] = []
+        headers["実行"].extend(asis_converted_plan)
+        return headers
+    
+    # header 1層目をキーに辞書で内容を保持する
+    def parse_headers(self):
+        headers = {}
+        current_header = None
+        for line in self.content.splitlines():
+            if line.startswith("# "):
+                current_header = line[2:].strip()
+                headers[current_header] = []
+            elif current_header:
+                headers[current_header].append(line)
+        return headers
+
+def make_uuid():
+    return str(uuid.uuid4())
+
+def main(args):
+    dir_name = args.dir
+    base_path = pathlib.Path(dir_name)
+
+    asis_dir = base_path / "asis"
+    asis_dir.mkdir(parents=True, exist_ok=True)
+
+    # get seed list
+    main_md = base_path / "main.md"
+    md_io = MarkdownIO(main_md)
+    md_io.process()
+
+    #    for seed in seeds:
+    #        file_id = make_uuid()
+    #        file_name = f"{file_id}.md"
+    #        file_path = asis_dir / file_name
+    #        with open(file_path, "w") as ff:
+    #            ff.write("# Hello World\n")
+    #        f.write(f"[{seed}](asis/{file_id}.md)\n")
+
+def get_args():
+    parser = argparse.ArgumentParser(description="A simple Hello World program.")
+    parser.add_argument("--dir", type=str, required=True, help="workdir")
     return parser.parse_args()
 
 if __name__ == "__main__":
