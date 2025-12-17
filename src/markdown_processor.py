@@ -53,6 +53,23 @@ class Headers():
         self.headers["実行"].extend(asis_converted_plan)
         return self.headers
 
+def re_match_title(line):
+    import re
+    match = re.match(r"\[(.*)\]\(.*\)", line)
+    if match:
+        return match.group(1)
+    return None
+
+def drop_exist_asis(plan_header, execute_header):
+    if plan_header is None or execute_header is None:
+        return plan_header
+    filtered_lines = []
+    execute_titles = list(map(re_match_title, execute_header))
+    for line in plan_header:
+        if line not in execute_titles:
+            filtered_lines.append(line)
+    return filtered_lines
+
 class MarkdownIO:
     def __init__(self, root_path: pathlib.Path, markdown_path: pathlib.Path):
         self.root_path = root_path
@@ -70,10 +87,12 @@ class MarkdownIO:
     def process(self):
         headers = Headers(self.content)
         plan_header = headers.headers.get("計画", None)
-        if plan_header is None:
+        execute_header = headers.headers.get("実行", None)
+        drop_duplicated_plan_header = drop_exist_asis(plan_header, execute_header)
+        if drop_duplicated_plan_header is None:
             return
         asis_path = self.root_path / "asis"
-        asis_converted_plan = convert_to_asis(plan_header, asis_path, self.markdown_path)
+        asis_converted_plan = convert_to_asis(drop_duplicated_plan_header, asis_path, self.markdown_path)
         asis_added_headers = headers.add_asis(asis_converted_plan)
         
         if asis_converted_plan is None:
